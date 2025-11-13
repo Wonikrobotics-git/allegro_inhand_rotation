@@ -1,15 +1,3 @@
-# --------------------------------------------------------
-# In-Hand Object Rotation via Rapid Motor Adaptation
-# https://arxiv.org/abs/2210.04887
-# Copyright (c) 2022 Haozhi Qi
-# Licensed under The MIT License [see LICENSE for details]
-# --------------------------------------------------------
-# Based on: IsaacGymEnvs
-# Copyright (c) 2018-2022, NVIDIA Corporation
-# Licence under BSD 3-Clause License
-# https://github.com/NVIDIA-Omniverse/IsaacGymEnvs/
-# --------------------------------------------------------
-
 import hydra
 
 from omegaconf import DictConfig, OmegaConf

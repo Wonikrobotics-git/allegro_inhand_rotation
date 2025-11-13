@@ -143,9 +143,9 @@ class ExperienceBuffer(Dataset):
             self.storage_dict[name][index, :] = val
 
     def computer_return(self, last_values, gamma, tau):
-        # GAE(Generalized Advantage Estimation)를 사용하여 어드밴티지와 리턴을 계산합니다.
-        # 이 방식은 분산이 높은 Monte-Carlo 방식과 편향이 있는 TD 방식 사이의 균형을 맞춥니다.
-        # 역순으로 타임스텝을 순회하며 각 스텝의 어드밴티지를 계산합니다.
+        # Calculate advantage and return using GAE (Generalized Advantage Estimation).
+        # This method balances between the high-variance Monte-Carlo method and the biased TD method.
+        # Iterate through timesteps in reverse to calculate the advantage of each step.
         last_gae_lam = 0
         mb_advs = torch.zeros_like(self.storage_dict["rewards"])
         for t in reversed(range(self.transitions_per_env)):
@@ -155,17 +155,17 @@ class ExperienceBuffer(Dataset):
                 next_values = self.storage_dict["values"][t + 1]
             next_nonterminal = 1.0 - self.storage_dict["dones"].float()[t]
             next_nonterminal = next_nonterminal.unsqueeze(1)
-            # TD 에러(delta) 계산: (현재 보상 + 감가율 * 다음 상태의 가치) - 현재 상태의 가치
+            # TD error (delta) calculation: (current reward + discount rate * next state value) - current state value
             delta = (
                 self.storage_dict["rewards"][t]
                 + gamma * next_values * next_nonterminal
                 - self.storage_dict["values"][t]
             )
-            # GAE 어드밴티지 계산: A_t = delta_t + (gamma * tau) * A_{t+1}
+            # GAE advantage calculation: A_t = delta_t + (gamma * tau) * A_{t+1}
             mb_advs[t] = last_gae_lam = (
                 delta + gamma * tau * next_nonterminal * last_gae_lam
             )
-            # 리턴(목표 가치) 계산: Return_t = Advantage_t + Value_t
+            # Return (target value) calculation: Return_t = Advantage_t + Value_t
             self.storage_dict["returns"][t, :] = (
                 mb_advs[t] + self.storage_dict["values"][t]
             )
@@ -174,9 +174,9 @@ class ExperienceBuffer(Dataset):
         self.data_dict = {}
         for k, v in self.storage_dict.items():
             self.data_dict[k] = transform_op(v)
-        # 어드밴티지 계산: Advantage = Return - Value
+        # Advantage calculation: Advantage = Return - Value
         advantages = self.data_dict["returns"] - self.data_dict["values"]
-        # 어드밴티지 정규화: 학습 안정성을 위해 어드밴티지의 평균을 0, 표준편차를 1로 만듭니다.
+        # Advantage normalization: To stabilize learning, make the mean of the advantage 0 and the standard deviation 1.
         self.data_dict["advantages"] = (
             (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         ).squeeze(1)
