@@ -77,9 +77,17 @@ conda create -n allegro python=3.10
 
 - `hora` env check: `python compare_hands.py`
   - This will show you the difference between AllegroHandHora urdf and PublicAllegroHandHora urdf
+
+<center>
+<img src="./matarials/compare.gif" width="50%" />
+</center>
+
 - `allegro` env check: `python hora/algo/allegro_ros2.py`
   - Command Interface script
 
+```
+
+```
 
 ## Run
 

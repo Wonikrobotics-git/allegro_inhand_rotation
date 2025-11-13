@@ -20,8 +20,19 @@ OmegaConf.register_new_resolver('resolve_default', lambda default, arg: default 
 def main(config: DictConfig):
     set_np_formatting()
     config.seed = set_seed(config.seed)
-    agent = HardwarePlayerTwoHands()
-    agent.restore(config.checkpoint)
+
+    # Check if debug mode is enabled
+    debug = config.get('debug', False)
+
+    # Get checkpoints for both hands
+    checkpoint_right = config.get('checkpoint_right', config.get('checkpoint', None))
+    checkpoint_left = config.get('checkpoint_left', None)
+
+    if checkpoint_right is None:
+        raise ValueError("checkpoint_right (or checkpoint) must be specified")
+
+    agent = HardwarePlayerTwoHands(debug=debug)
+    agent.restore(checkpoint_right, checkpoint_left)
     agent.deploy()
 
 

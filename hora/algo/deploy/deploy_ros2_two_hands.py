@@ -69,10 +69,12 @@ class HardwarePlayerTwoHands:
     Two-hands hardware player for bimanual Allegro hand control.
     Uses the same single-hand model independently for each hand.
     """
-    def __init__(self, hz: float = 20.0, device: str = "cuda"):
+    def __init__(self, hz: float = 20.0, device: str = "cuda", debug: bool = False):
         torch.set_grad_enabled(False)
         self.hz = float(hz)
         self.device = device
+        self.debug = debug
+        self._debug_counter = 0
 
         # Model configuration for single hand (will be used twice)
         obs_shape = (96,)  # Single hand observation
@@ -204,7 +206,7 @@ class HardwarePlayerTwoHands:
         self.cur_target_right = self._pre_physics_step_single(action_right, self.prev_target_right)
         self.prev_target_right = self.cur_target_right
 
-        # Process left hand
+        # Process left hand (independent model)
         # 1) Normalize observations
         obs_norm_left = self.running_mean_std_left(self.obs_buf_left)
 
@@ -231,6 +233,15 @@ class HardwarePlayerTwoHands:
         ros1_left = _action_hora2allegro(cmd_left)
         ros2_left = _reorder_imrt2timr(ros1_left)
         self.allegro_ios["left"].command_joint_position(ros2_left)
+
+        # Debug logging (every 100 steps)
+        if self.debug and self._debug_counter % 100 == 0:
+            print(f"\n[DEBUG] Step {self._debug_counter}")
+            print(f"  cmd_right (hora): {cmd_right[:4]}")  # Just thumb for brevity
+            print(f"  cmd_left  (hora): {cmd_left[:4]}")
+            print(f"  ros2_right[:4]: {ros2_right[:4]}")
+            print(f"  ros2_left[:4]:  {ros2_left[:4]}")
+        self._debug_counter += 1
 
         # 5) Non-blocking obs update for both hands
         # Right hand
@@ -375,19 +386,37 @@ class HardwarePlayerTwoHands:
                 print(f"🔥 Run started at {run_start_time}, ended at {run_end_time}")
 
     # ---------- checkpoint ----------
-    def restore(self, fn):
-        """Load the same single-hand checkpoint for both hands"""
-        ckpt = torch.load(fn, map_location=self.device)
+    def restore(self, checkpoint_right, checkpoint_left=None):
+        """
+        Load checkpoints for both hands independently.
 
-        # Load the same checkpoint into both right and left hand models
-        self.running_mean_std_right.load_state_dict(ckpt["running_mean_std"])
-        self.running_mean_std_left.load_state_dict(ckpt["running_mean_std"])
+        Args:
+            checkpoint_right: Path to checkpoint for right hand
+            checkpoint_left: Path to checkpoint for left hand (if None, uses same as right)
+        """
+        # Load right hand checkpoint
+        print(f"📦 Loading right hand checkpoint: {checkpoint_right}")
+        ckpt_right = torch.load(checkpoint_right, map_location=self.device)
+        self.running_mean_std_right.load_state_dict(ckpt_right["running_mean_std"])
+        self.model_right.load_state_dict(ckpt_right["model"])
+        self.sa_mean_std_right.load_state_dict(ckpt_right["sa_mean_std"])
 
-        self.model_right.load_state_dict(ckpt["model"])
-        self.model_left.load_state_dict(ckpt["model"])
+        # Load left hand checkpoint
+        if checkpoint_left is None:
+            print(f"📦 Using same checkpoint for left hand")
+            checkpoint_left = checkpoint_right
 
-        self.sa_mean_std_right.load_state_dict(ckpt["sa_mean_std"])
-        self.sa_mean_std_left.load_state_dict(ckpt["sa_mean_std"])
+        if checkpoint_left == checkpoint_right:
+            # Same checkpoint, just copy the weights
+            self.running_mean_std_left.load_state_dict(ckpt_right["running_mean_std"])
+            self.model_left.load_state_dict(ckpt_right["model"])
+            self.sa_mean_std_left.load_state_dict(ckpt_right["sa_mean_std"])
+        else:
+            print(f"📦 Loading left hand checkpoint: {checkpoint_left}")
+            ckpt_left = torch.load(checkpoint_left, map_location=self.device)
+            self.running_mean_std_left.load_state_dict(ckpt_left["running_mean_std"])
+            self.model_left.load_state_dict(ckpt_left["model"])
+            self.sa_mean_std_left.load_state_dict(ckpt_left["sa_mean_std"])
 
 
 # =========================================================
@@ -397,12 +426,16 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Two-Hands Allegro Hand Deployment")
-    parser.add_argument("--checkpoint", type=str, default=None,
-                        help="Path to checkpoint file (.pth)")
+    parser.add_argument("--checkpoint-right", type=str, required=True,
+                        help="Path to checkpoint file for right hand (.pth)")
+    parser.add_argument("--checkpoint-left", type=str, default=None,
+                        help="Path to checkpoint file for left hand (.pth). If not specified, uses same as right.")
     parser.add_argument("--hz", type=float, default=20.0,
                         help="Control frequency in Hz (default: 20.0)")
     parser.add_argument("--device", type=str, default=None,
                         help="Device to use (cuda/cpu). Auto-detects if not specified.")
+    parser.add_argument("--debug", action="store_true",
+                        help="Enable debug output")
 
     args = parser.parse_args()
 
@@ -413,13 +446,9 @@ if __name__ == "__main__":
         device = args.device
 
     # Create agent for two hands
-    agent = HardwarePlayerTwoHands(hz=args.hz, device=device)
+    agent = HardwarePlayerTwoHands(hz=args.hz, device=device, debug=args.debug)
 
-    # Load checkpoint if provided
-    if args.checkpoint:
-        print(f"📦 Loading checkpoint from: {args.checkpoint}")
-        agent.restore(args.checkpoint)
-    else:
-        print("⚠️  No checkpoint specified. Running with random weights.")
+    # Load checkpoints
+    agent.restore(args.checkpoint_right, args.checkpoint_left)
 
     agent.deploy()
