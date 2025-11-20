@@ -1,1 +1,2 @@
 rclpy
+hydra-core>=1.1

@@ -19,11 +19,14 @@ from hora.utils.misc import tprint
 
 
 # =========================================================
-# Conversion/rearrangement utility (for single hand)
+# Conversion/rearrangement utility (separate for left/right hands)
 # =========================================================
 
-def _action_hora2allegro(actions):
-    """Convert hora ordering to allegro ordering for a single hand"""
+def _action_hora2allegro_right(actions):
+    """Convert hora ordering to allegro ordering for RIGHT hand
+    Right hand hora order: index, thumb, middle, ring
+    Allegro order: index, middle, ring, thumb
+    """
     if isinstance(actions, torch.Tensor):
         if actions.dim() > 1:
             actions = actions.view(-1)
@@ -43,11 +46,52 @@ def _action_hora2allegro(actions):
         return cmd
 
 
-def _obs_allegro2hora(o):
-    """Convert allegro ordering to hora ordering for a single hand"""
-    # allegro: index - middle - ring - thumb
-    # hora   : index, thumb, middle, ring
+def _action_hora2allegro_left(actions):
+    """Convert hora ordering to allegro ordering for LEFT hand
+    Left hand hora order: ring, thumb, middle, index
+    Allegro order: index, middle, ring, thumb
+    """
+    if isinstance(actions, torch.Tensor):
+        if actions.dim() > 1:
+            actions = actions.view(-1)
+        cmd_act = actions.clone()
+        # allegro[0-3] = hora[12-15] (index)
+        cmd_act[[0, 1, 2, 3]] = actions[[12, 13, 14, 15]]
+        # allegro[4-7] = hora[8-11] (middle)
+        cmd_act[[4, 5, 6, 7]] = actions[[8, 9, 10, 11]]
+        # allegro[8-11] = hora[0-3] (ring)
+        cmd_act[[8, 9, 10, 11]] = actions[[0, 1, 2, 3]]
+        # allegro[12-15] = hora[4-7] (thumb)
+        cmd_act[[12, 13, 14, 15]] = actions[[4, 5, 6, 7]]
+        return cmd_act
+    else:
+        a = np.asarray(actions).flatten()
+        cmd = a.copy()
+        # allegro[0-3] = hora[12-15] (index)
+        cmd[[0, 1, 2, 3]] = a[[12, 13, 14, 15]]
+        # allegro[4-7] = hora[8-11] (middle)
+        cmd[[4, 5, 6, 7]] = a[[8, 9, 10, 11]]
+        # allegro[8-11] = hora[0-3] (ring)
+        cmd[[8, 9, 10, 11]] = a[[0, 1, 2, 3]]
+        # allegro[12-15] = hora[4-7] (thumb)
+        cmd[[12, 13, 14, 15]] = a[[4, 5, 6, 7]]
+        return cmd
+
+
+def _obs_allegro2hora_right(o):
+    """Convert allegro ordering to hora ordering for RIGHT hand
+    Allegro: index - middle - ring - thumb
+    Right hand hora: index, thumb, middle, ring
+    """
     return np.concatenate([o[0:4], o[12:16], o[4:8], o[8:12]]).astype(np.float64)
+
+
+def _obs_allegro2hora_left(o):
+    """Convert allegro ordering to hora ordering for LEFT hand
+    Allegro: index - middle - ring - thumb
+    Left hand hora: ring, thumb, middle, index
+    """
+    return np.concatenate([o[8:12], o[12:16], o[4:8], o[0:4]]).astype(np.float64)
 
 
 def _reorder_imrt2timr(imrt):
@@ -224,13 +268,13 @@ class HardwarePlayerTwoHands:
         # 4) Publish commands to both hands
         # Right hand
         cmd_right = self.cur_target_right.detach().to("cpu").numpy()[0]
-        ros1_right = _action_hora2allegro(cmd_right)
+        ros1_right = _action_hora2allegro_right(cmd_right)
         ros2_right = _reorder_imrt2timr(ros1_right)
         self.allegro_ios["right"].command_joint_position(ros2_right)
 
         # Left hand
         cmd_left = self.cur_target_left.detach().to("cpu").numpy()[0]
-        ros1_left = _action_hora2allegro(cmd_left)
+        ros1_left = _action_hora2allegro_left(cmd_left)
         ros2_left = _reorder_imrt2timr(ros1_left)
         self.allegro_ios["left"].command_joint_position(ros2_left)
 
@@ -248,7 +292,7 @@ class HardwarePlayerTwoHands:
         q_pos_right = self.allegro_ios["right"].poll_joint_position(wait=False, timeout=0.0)
         if q_pos_right is not None:
             ros1_q_right = _reorder_timr2imrt(q_pos_right)
-            hora_q_right = _obs_allegro2hora(ros1_q_right)
+            hora_q_right = _obs_allegro2hora_right(ros1_q_right)
             obs_q_right = torch.from_numpy(hora_q_right.astype(np.float32)).to(self.device)
             self._last_obs_q_right = obs_q_right
         else:
@@ -259,7 +303,7 @@ class HardwarePlayerTwoHands:
         q_pos_left = self.allegro_ios["left"].poll_joint_position(wait=False, timeout=0.0)
         if q_pos_left is not None:
             ros1_q_left = _reorder_timr2imrt(q_pos_left)
-            hora_q_left = _obs_allegro2hora(ros1_q_left)
+            hora_q_left = _obs_allegro2hora_left(ros1_q_left)
             obs_q_left = torch.from_numpy(hora_q_left.astype(np.float32)).to(self.device)
             self._last_obs_q_left = obs_q_left
         else:
@@ -313,13 +357,13 @@ class HardwarePlayerTwoHands:
 
         # Convert to hora format for right hand
         ros1_q_right = _reorder_timr2imrt(q_pos_right)
-        hora_q_right = _obs_allegro2hora(ros1_q_right)
+        hora_q_right = _obs_allegro2hora_right(ros1_q_right)
         obs_q_right = torch.from_numpy(hora_q_right.astype(np.float32)).to(self.device)
         self._last_obs_q_right = obs_q_right
 
         # Convert to hora format for left hand
         ros1_q_left = _reorder_timr2imrt(q_pos_left)
-        hora_q_left = _obs_allegro2hora(ros1_q_left)
+        hora_q_left = _obs_allegro2hora_left(ros1_q_left)
         obs_q_left = torch.from_numpy(hora_q_left.astype(np.float32)).to(self.device)
         self._last_obs_q_left = obs_q_left
 

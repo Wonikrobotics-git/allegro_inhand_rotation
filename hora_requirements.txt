@@ -5,3 +5,4 @@ gym
 tensorboard
 tensorboardx
 numpy==1.23.1
+wandb
