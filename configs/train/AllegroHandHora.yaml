@@ -34,7 +34,7 @@ ppo:
   grad_norm: 1.0
   # snapshot setting
   save_best_after: 0
-  save_frequency: 500
+  save_frequency: 500  # Stage 1: every N epochs, Stage 2: every N iterations
   max_agent_steps: 1500000000
   # hora setting
   priv_info: False

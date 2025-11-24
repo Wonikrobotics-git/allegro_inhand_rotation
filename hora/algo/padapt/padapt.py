@@ -70,6 +70,9 @@ class ProprioAdapt(object):
         self.best_rewards = -10000
         self.agent_steps = 0
         self.max_agent_steps = self.ppo_config["max_agent_steps"] # get rid of hardcoded 1e9
+        # ---- Snapshot ----
+        self.save_freq = self.ppo_config.get("save_frequency", 500)  # Use config or default to 500
+        self.save_best_after = self.ppo_config.get("save_best_after", 0)
         # ---- Optim ----
         # --- The core of Stage 2: Train only the adaptation module ---
         # Most of the parameters of the model learned in Stage 1 are frozen (set not to be trained).
@@ -83,6 +86,7 @@ class ProprioAdapt(object):
         # Set to optimize (Adam) only the selected adaptation module parameters.
         self.optim = torch.optim.Adam(adapt_params, lr=3e-4)
         # ---- Training Misc
+        self.epoch_num = 0
         self.internal_counter = 0
         self.latent_loss_stat = 0
         self.loss_stat_cnt = 0
@@ -163,14 +167,24 @@ class ProprioAdapt(object):
 
             self.log_tensorboard()
 
-            if self.agent_steps % 1e8 == 0:
-                self.save(os.path.join(self.nn_dir, f"{self.agent_steps // 1e8}00m"))
-                self.save(os.path.join(self.nn_dir, f"last"))
+            # Increment epoch counter
+            self.epoch_num += 1
 
+            # Periodic checkpoint saving (based on epoch frequency from config)
             mean_rewards = self.mean_eps_reward.get_mean()
-            if mean_rewards > self.best_rewards:
-                self.save(os.path.join(self.nn_dir, f"best"))
+            checkpoint_name = f"ep_{self.epoch_num}_step_{int(self.agent_steps / 1e6):04}M_reward_{mean_rewards:.2f}"
+
+            if self.save_freq > 0:
+                if self.epoch_num % self.save_freq == 0:
+                    self.save(os.path.join(self.nn_dir, checkpoint_name))
+                    self.save(os.path.join(self.nn_dir, "last"))
+
+            # Save best checkpoint
+            if (mean_rewards > self.best_rewards
+                and self.epoch_num >= self.save_best_after):
+                print(f"save current best reward: {mean_rewards:.2f}")
                 self.best_rewards = mean_rewards
+                self.save(os.path.join(self.nn_dir, "best"))
 
             all_fps = self.agent_steps / (time.time() - _t)
             last_fps = self.batch_size / (time.time() - _last_t)
