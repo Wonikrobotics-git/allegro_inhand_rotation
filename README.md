@@ -390,6 +390,24 @@ candump can0  # Should show periodic CAN messages if hand is connected
 
 Start the ROS 2 controller node that manages hand hardware communication.
 
+**Configure PD Gains:**
+
+Before launching the controller, configure the PD gains for optimal performance with this deployment. Edit the PD gains configuration file in your `allegro_hand_ros2` workspace:
+
+```yaml
+# File: allegro_hand_ros2/allegro_hand_hardwares/v4/description/config/pd_gains.yaml
+p_gains:
+  joint00: 3.6
+  ...
+  joint33: 3.6
+d_gain: 
+  joint00: 0.124
+  ...
+  joint33: 0.124
+```
+
+Reference configuration: [pd_gains.yaml](https://github.com/Wonikrobotics-git/allegro_hand_ros2/blob/main/allegro_hand_hardwares/v4/description/config/pd_gains.yaml)
+
 **Single Hand:**
 
 ```bash
