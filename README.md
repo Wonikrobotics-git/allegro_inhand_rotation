@@ -432,6 +432,10 @@ scripts/deploy_one_hand.sh my_experiment
 # Loads: outputs/RightAllegroHandHora/my_experiment/stage2_nn/best.pth
 ```
 
+<p align="center">
+  <img src="./materials/hw_deploy.gif" width="60%" />
+</p>
+
 **Dual Hand:**
 
 For dual hand deployment, specify checkpoint names for both hands. Each hand loads from its respective training directory:
