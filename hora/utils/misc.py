@@ -9,6 +9,9 @@
 # Licence under BSD 3-Clause License
 # https://github.com/NVIDIA-Omniverse/IsaacGymEnvs/
 # --------------------------------------------------------
+# Modified by Wonik Robotics (2025)
+# Adaptations for Allegro Hand V4 deployment
+# --------------------------------------------------------
 
 import os
 import torch

@@ -4,6 +4,9 @@
 # Copyright (c) 2022 Haozhi Qi
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
+# Modified by Wonik Robotics (2025)
+# Adaptations for Allegro Hand V4 deployment
+# --------------------------------------------------------
 
 import os
 import torch
@@ -130,7 +133,13 @@ class AllegroHandHora(VecTask):
 
 
         # ================== debug action plotting ==================
-        self.debug_plots = False
+        self.debug_plots = self.config["env"].get("enableDebugPlots", False)
+        self.action_recording = self.config["env"].get("enableActionRecording", False)
+
+        # Debug output directory
+        self.debug_dir = "debug"
+        if self.debug_plots or self.action_recording:
+            os.makedirs(self.debug_dir, exist_ok=True)
 
         self.debug_hist_len = 500
         self._dbg_step = 0
@@ -185,7 +194,6 @@ class AllegroHandHora(VecTask):
         # 'joint_12.0', 'joint_13.0', 'joint_14.0', 'joint_15.0',
         # 'joint_4.0', 'joint_5.0', 'joint_6.0', 'joint_7.0',
         # 'joint_8.0', 'joint_9.0', 'joint_10.0', 'joint_11.0']
-        # breakpoint()
         #
         # FINGER_ORDER = {
         #     "index": [0, 1, 2, 3],
@@ -249,7 +257,7 @@ class AllegroHandHora(VecTask):
 
             object_handle = self.gym.create_actor(env_ptr, object_asset, obj_pose, "object", i, 0, 0)
 
-            # === add: colorize by object type (cylinder=blue, cuboid=green) ===
+            # colorize by object type (cylinder=blue, cuboid=green) ===
             obj_name = self.object_type_list[object_type_id]
             if obj_name.startswith("cylinder"):
                 self.gym.set_rigid_body_color(
@@ -259,7 +267,6 @@ class AllegroHandHora(VecTask):
                 self.gym.set_rigid_body_color(
                     env_ptr, object_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.1, 0.85, 0.1)
                 )
-            # ===============================================================
 
             self.object_init_state.append([obj_pose.p.x,obj_pose.p.y,obj_pose.p.z,
                                            obj_pose.r.x,obj_pose.r.y,obj_pose.r.z,obj_pose.r.w,
@@ -355,9 +362,7 @@ class AllegroHandHora(VecTask):
             self.root_state_tensor[self.object_indices[s_ids], :7] = sampled_pose[:, 16:]
             self.root_state_tensor[self.object_indices[s_ids], 7:13] = 0
             pos = sampled_pose[:, :16]
-            # breakpoint()
             self.allegro_hand_dof_pos[s_ids, :] = pos
-            # breakpoint()
             self.allegro_hand_dof_vel[s_ids, :] = 0
             self.prev_targets[s_ids, : self.num_allegro_hand_dofs] = pos
             self.cur_targets[s_ids, : self.num_allegro_hand_dofs] = pos
@@ -565,9 +570,9 @@ class AllegroHandHora(VecTask):
         except Exception:
             if (self._dbg_step % 50) == 0:
                 if getattr(self, "_obs_fig", None):
-                    self._obs_fig.savefig(f"/tmp/obs_debug_{self._dbg_step:06d}.png")
+                    self._obs_fig.savefig(os.path.join(self.debug_dir, f"obs_debug_{self._dbg_step:06d}.png"))
                 if getattr(self, "_dbg_fig", None):
-                    self._dbg_fig.savefig(f"/tmp/allegro_debug_{self._dbg_step:06d}.png")
+                    self._dbg_fig.savefig(os.path.join(self.debug_dir, f"allegro_debug_{self._dbg_step:06d}.png"))
 
 
     def compute_observations(self):
@@ -582,7 +587,7 @@ class AllegroHandHora(VecTask):
         joint_noise_matrix = (torch.rand(self.allegro_hand_dof_pos.shape) * 2.0 - 1.0) * self.joint_noise_scale
         # normalized (pos + noise) // "q"
         cur_dof_normalized = (
-            unscale( ################################# 0
+            unscale( 
                 joint_noise_matrix.to(self.device) + self.allegro_hand_dof_pos, # add noise
                 self.allegro_hand_dof_lower_limits,
                 self.allegro_hand_dof_upper_limits,
@@ -592,7 +597,7 @@ class AllegroHandHora(VecTask):
         )
         cur_tar_buf = self.cur_targets[:, None] # 1, 1, 16 // "a"
         # cur_tar_buf: NOT normalized target
-        cur_obs_buf = torch.cat([cur_dof_normalized, cur_tar_buf], dim=-1) ######################### 1
+        cur_obs_buf = torch.cat([cur_dof_normalized, cur_tar_buf], dim=-1) 
 
         # length 80
         self.obs_buf_lag_history[:] = torch.cat([prev_obs_buf, cur_obs_buf], dim=1)
@@ -624,7 +629,7 @@ class AllegroHandHora(VecTask):
         # Fill self.obs_buf with the last 3 steps of self.obs_buf_lag_history // obs_buf is 96-dimensional (32 x 3)
         self.obs_buf[:, : t_buf.shape[1]] = t_buf
         # Fill self.proprio_hist_buf with the last 30 steps of self.obs_buf_lag_history // proprio_hist_buf torch.Size([1, 30, 32])
-        self.proprio_hist_buf[:] = self.obs_buf_lag_history[:, -self.prop_hist_len :].clone() ############################## 2
+        self.proprio_hist_buf[:] = self.obs_buf_lag_history[:, -self.prop_hist_len :].clone() 
 
 
         if self.debug_plots:
@@ -793,7 +798,7 @@ class AllegroHandHora(VecTask):
         self.actions = actions.clone().to(self.device)
         targets = self.prev_targets + 1 / 24 * self.actions
 
-        if self.debug_plots:
+        if self.debug_plots or self.action_recording:
             debug_prev_targets = self.prev_targets.clone()
 
         self.cur_targets[:] = tensor_clamp(
@@ -805,7 +810,7 @@ class AllegroHandHora(VecTask):
         self.prev_targets[:] = self.cur_targets.clone()
 
         # 4) Push debugging history + plotting
-        if self.debug_plots and debug_prev_targets is not None:
+        if (self.debug_plots or self.action_recording) and debug_prev_targets is not None:
             # Set up once for the first time
             self._ensure_plots()
 
@@ -825,16 +830,16 @@ class AllegroHandHora(VecTask):
             self._push_row(self._hist_target_raw,  tgt_row)
             self._push_row(self._hist_cur_target,  cur_row)
 
-            self._update_plots()
+            if self.debug_plots:
+                self._update_plots()
 
         self._dbg_step += 1
 
-        if self.debug_plots and not self._action_saved and self._dbg_step == 500:
-            np.savez("actions_500.npz", actions=self._hist_actions)
+        if self.action_recording and not self._action_saved and self._dbg_step == 500:
+            npz_path = os.path.join(self.debug_dir, "actions_500.npz")
+            np.savez(npz_path, actions=self._hist_actions)
             self._action_saved = True
-            print("Saved first 500 actions of env0 to actions_500.npz")
-
-        # -------------------------------------------------------------------
+            print(f"Saved first 500 actions of env0 to {npz_path}")
 
         self.object_rot_prev[:] = self.object_rot
         self.object_pos_prev[:] = self.object_pos
@@ -940,7 +945,7 @@ class AllegroHandHora(VecTask):
             plt.pause(0.001)
         except Exception:
             if (self._dbg_step % 50) == 0:
-                self._err_fig.savefig(f"./pos_error_only_{self._dbg_step:06d}.png")
+                self._err_fig.savefig(os.path.join(self.debug_dir, f"pos_error_only_{self._dbg_step:06d}.png"))
 
 
     def update_low_level_control(self):
@@ -952,15 +957,12 @@ class AllegroHandHora(VecTask):
             self.dof_vel_finite_diff = dof_vel.clone()
 
             pos_error = self.cur_targets - dof_pos
-            # TODO plot pos_error
-            # >>> Dedicated error plot: sliding record + update based on env0
             if self.debug_plots:
                 self._ensure_err_plot()
                 perr_np  = self._to_np(pos_error)           # (num_envs, dof)
                 perr_row = self._pick_env0_1d(perr_np)      # (dof,)
                 self._push_row(self._hist_pos_error, perr_row)
                 self._update_err_plot()
-            # <<<
 
             torques = self.p_gain * pos_error - self.d_gain * dof_vel
             self.torques = torch.clip(torques, -0.5, 0.5).clone()
@@ -1047,10 +1049,7 @@ class AllegroHandHora(VecTask):
         for p_id, prim in enumerate(primitive_list):
             print(p_id, prim)
             if "cuboid" in prim:
-                # print("cuboid")
-                # print(self.object_type)
                 subset_name = self.object_type.split("_")[-1]
-                # print(subset_name)
                 cuboids = sorted(glob(f"assets/cuboid/{subset_name}/*.urdf"))
                 cuboid_list = [f"cuboid_{i}" for i in range(len(cuboids))]
                 self.object_type_list += cuboid_list

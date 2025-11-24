@@ -9,6 +9,9 @@
 # Licence under BSD 3-Clause License
 # https://github.com/NVIDIA-Omniverse/IsaacGymEnvs/
 # --------------------------------------------------------
+# Modified by Wonik Robotics (2025)
+# Adaptations for Allegro Hand V4 deployment
+# --------------------------------------------------------
 
 import isaacgym
 
@@ -27,9 +30,7 @@ from hora.utils.misc import set_np_formatting, set_seed, git_hash, git_diff_conf
 
 import wandb
 
-## OmegaConf & Hydra Config
-
-# Resolvers used in hydra configs (see https://omegaconf.readthedocs.io/en/2.1_branch/usage.html#resolvers)
+# OmegaConf & Hydra Config
 OmegaConf.register_new_resolver("eq", lambda x, y: x.lower() == y.lower())
 OmegaConf.register_new_resolver("contains", lambda x, y: x.lower() in y.lower())
 OmegaConf.register_new_resolver("if", lambda pred, a, b: a if pred else b)
@@ -51,7 +52,6 @@ def main(config: DictConfig):
     # sets seed. if seed is -1 will pick a random one
     config.seed = set_seed(config.seed)
 
-    # -------------------------------------------------------------------------------
     date = str(datetime.datetime.now().strftime("%m%d%H%M"))
 
     # Initialize wandb if enabled
@@ -78,7 +78,6 @@ def main(config: DictConfig):
         wandb.run.save()
         cprint(f"Wandb initialized: {config.wandb.entity}/{config.wandb.project}", "cyan", attrs=["bold"])
 
-    # -------------------------------------------------------------------------------
 
     cprint("Start Building the Environment", "green", attrs=["bold"])
     env = isaacgym_task_map[config.task_name](

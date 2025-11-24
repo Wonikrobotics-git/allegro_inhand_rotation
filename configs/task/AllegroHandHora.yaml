@@ -12,6 +12,8 @@ env:
 
   episodeLength: 400
   enableDebugVis: True
+  enableDebugPlots: False
+  enableActionRecording: False
   aggregateMode: 1
 
   controller:

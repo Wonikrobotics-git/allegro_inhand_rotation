@@ -178,7 +178,20 @@ python train.py task=RightAllegroHandHora train.ppo.learning_rate=1e-4
 ### Generate Grasping Poses
 
 To achieve a stable initial grasp, you must prepare reliable grasp poses for the target objects.
-According to the [original HORA instructions](https://github.com/HaozhiQi/hora/?tab=readme-ov-file#prerequisite), you can directly download the provided `.npy` grasp pose files for Allegro Hand V4 Right/Left: [Download Link]()
+
+**Download pre-generated grasp poses:**
+
+1. Download the grasp pose files from [HuggingFace](https://huggingface.co/datasets/Wonik-Robotics/allegro_inhand_rotation)
+2. Extract and place the `cache/` folder in the project root directory
+
+Your directory structure should look like:
+```
+allegro_inhand_rotation/
+├── cache/              # Downloaded grasp poses
+├── configs/
+├── hora/
+└── ...
+```
 
 Alternatively, you can generate grasp poses **from scratch** using the scripts included in this repository:
 
@@ -269,6 +282,22 @@ Renders 64 environments with GUI to visually inspect policy behavior. Most rando
   <img src="./materials/vis.gif" width="60%"/>
 </p>
 
+#### Debugging
+
+Enable debugging tools to visualize policy behavior and save action data for analysis.
+
+**Enable in `configs/task/AllegroHandHora.yaml`:**
+
+```yaml
+env:
+  enableDebugPlots: True        # Visualize DOF trajectories (PNG plots)
+  enableActionRecording: True   # Save action history (NPZ file)
+```
+
+**Output** (saved to `debug/` directory):
+- `obs_debug_*.png`, `allegro_debug_*.png` - Joint trajectories and commands
+- `actions_500.npz` - First 500 actions from environment 0
+
 ### Test in Real-world
 
 Deploy your trained policy to physical Allegro Hand hardware. This requires switching to the `allegro` conda environment (Python 3.10+) for ROS 2 compatibility.
@@ -349,7 +378,7 @@ Run the trained policy on the physical hardware. The deployment script loads Sta
 Since previous training examples used `RightAllegroHandHora`, the deploy script defaults to loading from that directory:
 
 ```bash
-scripts/deploy.sh my_experiment
+scripts/deploy_one_hand.sh my_experiment
 # Loads: outputs/RightAllegroHandHora/my_experiment/stage2_nn/best.pth
 ```
 

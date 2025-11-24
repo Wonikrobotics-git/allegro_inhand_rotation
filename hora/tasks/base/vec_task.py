@@ -9,6 +9,9 @@
 # Licence under BSD 3-Clause License
 # https://github.com/NVIDIA-Omniverse/IsaacGymEnvs/
 # --------------------------------------------------------
+# Modified by Wonik Robotics (2025)
+# Adaptations for Allegro Hand V4 deployment
+# --------------------------------------------------------
 
 from isaacgym import gymapi
 
@@ -210,7 +213,7 @@ class VecTask(Env):
         # allocate buffers
         self.obs_buf = torch.zeros((self.num_envs, self.num_obs), device=self.device, dtype=torch.float)
         self.obs_buf_lag_history = torch.zeros(
-            (self.num_envs, 80, self.num_obs // 3), # TODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
+            (self.num_envs, 80, self.num_obs // 3), 
             device=self.device,
             dtype=torch.float,
         )
@@ -310,11 +313,9 @@ class VecTask(Env):
         # compute observations, rewards, resets, ...
         self.post_physics_step()
         self.extras["time_outs"] = self.timeout_buf.to(self.rl_device)
-        # breakpoint()
         self.obs_dict["obs"] = torch.clamp(
             self.obs_buf, -self.clip_obs, self.clip_obs
         ).to(self.rl_device)
-        # breakpoint()
         return (
             self.obs_dict,
             self.rew_buf.to(self.rl_device),

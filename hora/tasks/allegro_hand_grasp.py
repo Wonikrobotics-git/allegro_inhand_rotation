@@ -4,6 +4,9 @@
 # Copyright (c) 2022 Haozhi Qi
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
+# Modified by Wonik Robotics (2025)
+# Adaptations for Allegro Hand V4 deployment
+# --------------------------------------------------------
 
 import torch
 import numpy as np

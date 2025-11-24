@@ -9,6 +9,9 @@
 # Licence under MIT License
 # https://github.com/Denys88/rl_games/
 # --------------------------------------------------------
+# Modified by Wonik Robotics (2025)
+# Adaptations for Allegro Hand V4 deployment
+# --------------------------------------------------------
 
 import gym
 import torch

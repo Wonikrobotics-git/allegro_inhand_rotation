@@ -61,4 +61,4 @@ echo "✓ Both checkpoints found"
 echo ""
 echo "Starting deployment..."
 
-python run_two.py +checkpoint_right="${CHECKPOINT_RIGHT}" +checkpoint_left="${CHECKPOINT_LEFT}"
+python run.py +checkpoint_right="${CHECKPOINT_RIGHT}" +checkpoint_left="${CHECKPOINT_LEFT}"
