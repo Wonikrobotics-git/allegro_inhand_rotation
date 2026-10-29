@@ -11,7 +11,7 @@ As additional robotic hand platforms are developed within our organization, this
 This codebase utilizes:
 
 - **Allegro Hand ROS2 Controller**
-  https://github.com/Wonikrobotics-git/allegro_hand_ros2
+  https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4
 - **AI Algorithm: In-Hand Object Rotation via Rapid Motor Adaptation (RMA)**
   Original research & implementation by Haozhi Qi
   https://haozhi.io/hora/
@@ -35,9 +35,27 @@ Download: [https://developer.nvidia.com/isaac-gym/download](https://developer.nv
 
 This project operates based on the official controller:
 
-**👉 [WonikRobotics-git/allegro_hand_ros2](https://github.com/WonikRobotics-git/allegro_hand_ros2)**
+**👉 [Wonikrobotics-git/allegro_hand_ros2_v4](https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4)**
 
-Refer to the official repository for detailed installation and setup instructions. You will need this for real-world deployment.
+Use the [`humble` release](https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4/releases/tag/humble)
+of the V4 controller for real-world deployment. This preserves the controller
+interfaces used by this application. Repository access is required while the
+controller repository is private.
+
+```bash
+source /opt/ros/humble/setup.bash
+mkdir -p ~/allegro_hand_v4_ws/src
+cd ~/allegro_hand_v4_ws/src
+git clone --branch humble https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4.git
+cd ~/allegro_hand_v4_ws
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+```
+
+See the [V4 user guide](https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4/blob/main/allegro_hand_bringup/getting_started_v4.md)
+for detailed hardware setup. ROS package names remain unchanged, including
+`allegro_hand_bringup` and the `allegro_hand_ros2` metapackage.
 
 ### 3. Python Environment Setup
 
@@ -124,8 +142,8 @@ python compare_hands.py
 **Step 1:** Launch the ROS 2 hand controller (in a separate terminal):
 
 ```bash
-# Navigate to your allegro_hand_ros2 workspace
-cd /path/to/allegro_hand_ros2_ws
+# Navigate to your V4 controller workspace
+cd ~/allegro_hand_v4_ws
 source install/setup.bash
 
 # Launch controller
@@ -351,7 +369,7 @@ Deploy your trained policy to physical Allegro Hand hardware. This requires swit
 Before starting, ensure:
 - Allegro Hand(s) connected via USB and powered on
 - CAN interface hardware properly installed
-- [allegro_hand_ros2](https://github.com/WonikRobotics-git/allegro_hand_ros2) package installed and built
+- [allegro_hand_ros2_v4](https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4/tree/humble) controller (`humble` tag) installed and built
 - ROS 2 workspace sourced (`source install/setup.bash`)
 - `allegro` conda environment activated (`conda activate allegro`)
 
@@ -392,10 +410,10 @@ Start the ROS 2 controller node that manages hand hardware communication.
 
 **Configure PD Gains:**
 
-Before launching the controller, configure the PD gains for optimal performance with this deployment. Edit the PD gains configuration file in your `allegro_hand_ros2` workspace:
+Before launching the controller, configure the PD gains for optimal performance with this deployment. Edit the PD gains configuration file in your V4 controller workspace:
 
 ```yaml
-# File: allegro_hand_ros2/allegro_hand_hardwares/v4/description/config/pd_gains.yaml
+# File: ~/allegro_hand_v4_ws/src/allegro_hand_ros2_v4/allegro_hand_hardwares/v4/description/config/pd_gains.yaml
 p_gains:
   joint00: 3.6
   ...
@@ -406,7 +424,7 @@ d_gain:
   joint33: 0.124
 ```
 
-Reference configuration: [pd_gains.yaml](https://github.com/Wonikrobotics-git/allegro_hand_ros2/blob/main/allegro_hand_hardwares/v4/description/config/pd_gains.yaml)
+Reference configuration: [pd_gains.yaml](https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4/blob/humble/allegro_hand_hardwares/v4/description/config/pd_gains.yaml)
 
 **Single Hand:**
 

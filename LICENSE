@@ -138,7 +138,7 @@ their own license terms.
 ----------------------------------------------------------
 Copyright (c) Wonik Robotics
 License: BSD (as declared in the package.xml manifests)
-Repository: https://github.com/Wonikrobotics-git/allegro_hand_ros2
+Repository: https://github.com/Wonikrobotics-git/allegro_hand_ros2_v4
 
 STATUS: Runtime dependency for hardware deployment. Not included in
 this repository.
